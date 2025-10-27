@@ -4,6 +4,7 @@ from prestamo import Prestamo
 from database import DBConector
 import datetime
 import logging
+import bcrypt  # <-- Importamos la librería de encriptación
 
 class Biblioteca:
     def __init__(self):
@@ -13,8 +14,42 @@ class Biblioteca:
         self.logger = logging.getLogger(__name__)
         
         # Conectar automáticamente al inicializar
-        if not self.db.connect():
-            self.logger.error("No se pudo conectar a la base de datos al inicializar")
+        try:
+            if not self.db.connect():
+                self.logger.error("No se pudo conectar a la base de datos al inicializar")
+                raise ConnectionError("Fallo en la conexión inicial a la BD")
+        except Exception as e:
+            self.logger.critical(f"Error fatal de conexión: {e}")
+            raise
+
+    # --- MÉTODO DE LOGIN (EL QUE TE FALTABA) ---
+    def login(self, id_usuario: str, password_ingresada: str):
+        """
+        Verifica el login de un usuario contra la base de datos.
+        Usa bcrypt para comparar contraseñas de forma segura.
+        """
+        try:
+            query = "SELECT password FROM usuarios WHERE id_usuario = %s"
+            resultado = self.db.fetch_one(query, (id_usuario,))
+            
+            if resultado:
+                # Obtenemos la contraseña "hash" (encriptada) de la BD
+                password_guardada_hash = resultado[0].encode('utf-8')
+                password_ingresada_bytes = password_ingresada.encode('utf-8')
+                
+                # bcrypt comprueba si la contraseña ingresada coincide con la guardada
+                if bcrypt.checkpw(password_ingresada_bytes, password_guardada_hash):
+                    print(f"\n¡Bienvenido, {id_usuario}!")
+                    return True
+                else:
+                    print("Contraseña incorrecta.")
+                    return False
+            else:
+                print("Usuario no encontrado.")
+                return False
+        except Exception as e:
+            print(f"Error durante el login: {e}")
+            return False
 
     def agregar_libro(self, libro: Libro):
         query = "INSERT INTO libros (titulo, autor, fecha_publicacion, disponible) VALUES (%s, %s, %s, %s)"
@@ -31,9 +66,14 @@ class Biblioteca:
             print(f"Error al agregar el libro: {e}")
             return False
 
+    # --- MÉTODO MODIFICADO (PARA ENCRIPTAR) ---
     def registrar_estudiante(self, estudiante: Estudiante):
-        query = "INSERT INTO usuarios (id_usuario, nombre, tipo, carrera_depto) VALUES (%s, %s, %s, %s)"
-        valores = (estudiante.id_usuario, estudiante.nombre, 'Estudiante', estudiante.carrera)
+        query = "INSERT INTO usuarios (id_usuario, nombre, password, tipo, carrera_depto) VALUES (%s, %s, %s, %s, %s)"
+        
+        # Encriptamos la contraseña antes de guardarla
+        hashed_pw = bcrypt.hashpw(estudiante.password.encode('utf-8'), bcrypt.gensalt())
+        
+        valores = (estudiante.id_usuario, estudiante.nombre, hashed_pw, 'Estudiante', estudiante.carrera)
         try:
             success = self.db.execute_query(query, valores)
             if success:
@@ -46,19 +86,36 @@ class Biblioteca:
             print(f"Error al registrar al estudiante: {e}")
             return False
 
+    # --- NUEVO MÉTODO (PARA ENCRIPTAR) ---
+    def registrar_profesor(self, profesor: Profesor):
+        query = "INSERT INTO usuarios (id_usuario, nombre, password, tipo, carrera_depto) VALUES (%s, %s, %s, %s, %s)"
+        
+        # Encriptamos la contraseña
+        hashed_pw = bcrypt.hashpw(profesor.password.encode('utf-8'), bcrypt.gensalt())
+        
+        valores = (profesor.id_usuario, profesor.nombre, hashed_pw, 'Profesor', profesor.departamento)
+        try:
+            success = self.db.execute_query(query, valores)
+            if success:
+                print(f"Profesor '{profesor.nombre}' registrado en la base de datos.")
+                return True
+            else:
+                print("Error al registrar al profesor en la base de datos.")
+                return False
+        except Exception as e:
+            print(f"Error al registrar al profesor: {e}")
+            return False
+
     def prestar_libro(self, id_libro: int, id_usuario: str):
         try:
-            # Verificar si el libro existe y está disponible
             libro_disponible_query = "SELECT disponible FROM libros WHERE id_libro = %s"
             resultado = self.db.fetch_one(libro_disponible_query, (id_libro,))
             
-            if resultado and resultado[0]:  # Si existe y está disponible
-                # Actualizar libro a no disponible
+            if resultado and resultado[0]:
                 update_libro_query = "UPDATE libros SET disponible = FALSE WHERE id_libro = %s"
                 success_update = self.db.execute_query(update_libro_query, (id_libro,))
                 
                 if success_update:
-                    # Registrar préstamo
                     nuevo_prestamo = Prestamo(id_libro, id_usuario, datetime.date.today())
                     insert_prestamo_query = """
                     INSERT INTO prestamos (id_libro, id_usuario, fecha_prestamo, devuelto) 
@@ -73,7 +130,6 @@ class Biblioteca:
                         print(f"Préstamo del libro ID {id_libro} al usuario {id_usuario} registrado con éxito.")
                         return True
                     else:
-                        # Revertir cambio en libro si falla el préstamo
                         self.db.execute_query("UPDATE libros SET disponible = TRUE WHERE id_libro = %s", (id_libro,))
                         print("Error al registrar el préstamo.")
                         return False
@@ -90,12 +146,10 @@ class Biblioteca:
 
     def devolver_libro(self, id_libro: int, id_usuario: str):
         try:
-            # Actualizar libro a disponible
             update_libro_query = "UPDATE libros SET disponible = TRUE WHERE id_libro = %s"
             success_libro = self.db.execute_query(update_libro_query, (id_libro,))
             
             if success_libro:
-                # Actualizar préstamo como devuelto
                 update_prestamo_query = """
                 UPDATE prestamos 
                 SET fecha_devolucion = %s, devuelto = TRUE 
@@ -132,7 +186,6 @@ class Biblioteca:
             return []
 
     def buscar_libro_por_titulo(self, titulo):
-        """Método adicional para buscar libros por título"""
         try:
             query = "SELECT id_libro, titulo, autor, disponible FROM libros WHERE titulo LIKE %s"
             resultados = self.db.fetch_all(query, (f"%{titulo}%",))

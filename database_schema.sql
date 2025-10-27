@@ -12,10 +12,11 @@ CREATE TABLE IF NOT EXISTS libros (
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de usuarios
+-- Tabla de usuarios (VERSIÓN CORREGIDA)
 CREATE TABLE IF NOT EXISTS usuarios (
     id_usuario VARCHAR(50) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL, -- <-- ¡LA COLUMNA QUE FALTABA!
     tipo ENUM('Estudiante', 'Profesor') NOT NULL,
     carrera_depto VARCHAR(255),
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -40,9 +41,7 @@ INSERT INTO libros (titulo, autor, fecha_publicacion, disponible) VALUES
 ('1984', 'George Orwell', 1949, TRUE),
 ('El Quijote', 'Miguel de Cervantes', 1605, TRUE);
 
-INSERT INTO usuarios (id_usuario, nombre, tipo, carrera_depto) VALUES
-('EST001', 'Ana García', 'Estudiante', 'Ingeniería Informática'),
-('PROF001', 'Carlos López', 'Profesor', 'Departamento de Literatura');
+-- (Quitamos los usuarios de ejemplo porque no tenían contraseña)
 
 -- Crear usuario para la aplicación (ejecutar en MySQL como root)
 CREATE USER IF NOT EXISTS 'biblioteca_user'@'localhost' IDENTIFIED BY 'password_seguro';
