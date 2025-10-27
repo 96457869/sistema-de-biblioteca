@@ -71,7 +71,7 @@ def iniciar_aplicacion(mi_biblioteca: Biblioteca):
             except ValueError:
                 print("Error: El ID del libro debe ser un número.")
                 
-        elif opcion == '7:':
+        elif opcion == '7':
             # --- (NUEVO) ELIMINAR USUARIO ---
             print("\n[Eliminando usuario]")
             id_usuario = input("ID del usuario a eliminar: ")
@@ -162,6 +162,22 @@ def main():
         else:
             print("Opción no válida. Intente de nuevo.")
 
-# --- Punto de entrada del programa ---
+# --- Punto de entrada del programa (MODIFICADO PARA .EXE) ---
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+        
+    except SystemExit:
+        # Esto captura el sys.exit() cuando el usuario elige "Salir"
+        # y permite que el script continúe al 'finally'
+        pass 
+        
+    except Exception as e:
+        # Esto captura cualquier error inesperado que crashee el programa
+        print("\n\n--- HA OCURRIDO UN ERROR INESPERADO ---")
+        print(f"ERROR: {e}")
+        
+    finally:
+        # Esto SIEMPRE se ejecutará
+        print("\n\nPresiona ENTER para cerrar esta ventana.")
+        input() # <-- Esta es la línea que pausa la ventana
