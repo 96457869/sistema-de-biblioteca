@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS libros (
 CREATE TABLE IF NOT EXISTS usuarios (
     id_usuario VARCHAR(50) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL, -- <-- ¡LA COLUMNA QUE FALTABA!
+    password BINARY(60) NOT NULL, -- <-- ¡Formato BINARIO(60) para bcrypt!
     tipo ENUM('Estudiante', 'Profesor') NOT NULL,
     carrera_depto VARCHAR(255),
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
